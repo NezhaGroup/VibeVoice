@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  vibevoice-realtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - MODEL_PATH=/app/models/VibeVoice-Realtime-0.5B
+      - MODEL_DEVICE=cpu
+      - PORT=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    restart: unless-stopped
