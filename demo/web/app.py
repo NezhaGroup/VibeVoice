@@ -360,26 +360,25 @@ def streaming_tts(text: str, **kwargs) -> Iterator[np.ndarray]:
     service: StreamingTTSService = app.state.tts_service
     yield from service.stream(text, **kwargs)
 
-@app.websocket("/stream")
+@app.websocket("/ws/stream")
 async def websocket_stream(ws: WebSocket) -> None:
     await ws.accept()
-    text = ws.query_params.get("text", "")
-    print(f"Client connected, text={text!r}")
-    cfg_param = ws.query_params.get("cfg")
-    steps_param = ws.query_params.get("steps")
-    voice_param = ws.query_params.get("voice")
-
+    # 等待客户端第一条 JSON 配置消息
     try:
-        cfg_scale = float(cfg_param) if cfg_param is not None else 1.5
-    except ValueError:
-        cfg_scale = 1.5
+        config_text = await ws.receive_text()
+        config = json.loads(config_text)
+    except Exception as e:
+        await ws.close(code=1008, reason="Invalid initial JSON config")
+        return
+
+    text = config.get("text", "")
+    cfg_scale = float(config.get("cfg", 1.5))
+    inference_steps = config.get("steps")
+    voice_param = config.get("voice")
+
     if cfg_scale <= 0:
         cfg_scale = 1.5
-    try:
-        inference_steps = int(steps_param) if steps_param is not None else None
-        if inference_steps is not None and inference_steps <= 0:
-            inference_steps = None
-    except ValueError:
+    if inference_steps is not None and inference_steps <= 0:
         inference_steps = None
 
     service: StreamingTTSService = app.state.tts_service
